@@ -62,7 +62,6 @@
 				...info
 			};
 		requests("/user/login", query, "POST").then((response) => {
-			console.log("response", response);
 			uni.setStorageSync('identity',response.info.identity)
 			var pages = getCurrentPages(); //当前页
 			var beforePage = pages[pages.length - 2]; //上个页面

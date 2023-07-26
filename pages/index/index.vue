@@ -1,7 +1,7 @@
 <template>
 	<view class="main">
 		<view class="uni-margin-wrap">
-			<swiper class="swiper" circular :indicator-dots="true" :autoplay="true" :interval="1500" :duration="duration">
+			<swiper class="swiper" circular :indicator-dots="true" :autoplay="true" :interval="1500">
 				<swiper-item>
 					<view class="swiper-item uni-bg-red" style="background-color: red;">A</view>
 				</swiper-item>
@@ -17,7 +17,8 @@
 		<view class="nav">
 			<view v-for="item in data.navList" :key="item.id" @click="allOrder(item.id)"
 				:style="data.orderStatus == item.id ? 'background-color: skyblue;color:#fff;' : ''" class="nav-item">
-				{{item.label}}</view>
+				{{item.label}}
+			</view>
 		</view>
 
 		<view class="list" v-for="item in data.list" :key="item.ID">
@@ -49,10 +50,18 @@
 				该订单已由 {{item.receiver}} 接单
 			</view>
 		</view>
+
+		<uni-popup ref="takingPopup">
+			<inquire-box :orderId="data.orderId" :text="'是否确认接单'" @order="order" @close="close"></inquire-box>
+		</uni-popup>
+
+		<uni-fab ref="fab" @fabClick="addOrder" :pattern="{buttonColor :'#f4bf53'}" horizontal="right" />
+
 	</view>
 </template>
 
 <script setup>
+	import inquireBox from "../../components/inquire-box/index.vue";
 	import {
 		reactive,
 		ref,
@@ -60,14 +69,18 @@
 	} from "vue";
 
 	import {
-		onLoad
+		onLoad,
+		onReachBottom,
+		onPullDownRefresh
 	} from "@dcloudio/uni-app";
 
 	const {
 		requests,
 		baseUrl
 	} = getCurrentInstance().appContext.config.globalProperties;
+
 	const data = reactive({
+		orderId: null, //接单 id
 		orderStatus: 1, //订单状态
 		//订单列表
 		list: [{
@@ -104,50 +117,105 @@
 		]
 	});
 
+	const takingPopup = ref(null); //接单弹框
+
+	const isNoData = ref(false);
+
+	//新增订单
+	const addOrder = () => {
+		uni.navigateTo({
+			url: "/pages/add_order/index"
+		})
+	};
+
+	//接单
+	const order = (arg) => {
+		data.list.map((item) => {
+			if (item.ID == data.orderId) {
+				item.status = 1;
+				item.receiver = arg.name;
+			}
+		});
+		close();
+	};
+
+	//关闭接单询问框
+	const close = () => {
+		takingPopup.value.close();
+	};
+
 	//详情
 	const handleDetail = (id) => {
 		console.log("详情 handleDetail", id);
 		uni.navigateTo({
-			url:"/pages/order_detail/index?id=" + id 
+			url: "/pages/order_detail/index?id=" + id
 		});
 	};
+
 	//不感兴趣
 	const notInterested = (id) => {
 		let list = [];
-		data.list.map((item)=>{
-			if(item.ID != id) list.push(item);
+		data.list.map((item) => {
+			if (item.ID != id) list.push(item);
 		});
 		data.list = list;
 	};
+
 	//接单
 	const orderTaking = (id) => {
+		takingPopup.value.open();
+		data.orderId = id;
 		console.log("接单 orderTaking", id);
 	};
+
 	//接单状态 
 	const allOrder = (type) => {
 		if (data.orderStatus == type) return;
 		data.orderStatus = type;
-		const query = {
-			...data.listQuery
+		data.listQuery = {
+			size: 10,
+			page: 1
 		};
 		if (type == 1) {
-			query.status = -1;
+			data.listQuery.status = -1;
 		} else if (type == 2) {
-			query.status = 0;
+			data.listQuery.status = 0;
 		} else if (type == 3) {
-			query.create_id = uni.getStorageSync("identity");
+			data.listQuery.receiver_id = uni.getStorageSync("identity");
 		} else if (type == 4) {
-			query.receiver_id = uni.getStorageSync("identity");
+			data.listQuery.create_id = uni.getStorageSync("identity");
 		}
-		getList(query);
+		
+		getList(data.listQuery);
 	};
 
 	// 获取订单列表 
-	const getList = (query) => {
+	const getList = (query, method) => {
 		requests("/express/list", query, "GET").then((response) => {
-			data.list = response.data.list
+			if (response.data.list.length < 10) {
+				isNoData.value = true;
+			}
+			if (data.listQuery.page == 1) {
+				data.list = response.data.list;
+			} else {
+				data.list = [...data.list, ...response.data.list];
+			}
+			if (method) uni.stopPullDownRefresh();
 		});
 	};
+
+	//下拉事件
+	onPullDownRefresh(() => {
+		data.listQuery.page = 1;
+		getList(data.listQuery, true);
+	});
+
+	//上滑事件
+	onReachBottom(() => {
+		if (isNoData.value) return;
+		data.listQuery.page++;
+		getList(data.listQuery);
+	});
 
 	onLoad(() => {
 		getList(data.listQuery);
@@ -159,10 +227,10 @@
 		width: 96%;
 		height: auto;
 		margin: 20rpx auto;
-		background-color: skyblue;
 		border-radius: 10rpx;
 		padding: 20rpx 20rpx 0;
 		box-sizing: border-box;
+		background-color: #fff;
 
 		.received {
 			margin: 0 auto;
@@ -244,18 +312,20 @@
 		height: 150rpx;
 		width: 96%;
 		margin: 20rpx auto;
-		background-color: skyblue;
 		border-radius: 10rpx;
 		display: flex;
 		align-items: center;
+		background-color: #fff;
 
 		.nav-item {
-			width: 20%;
+			width: 100rpx;
 			height: 100rpx;
 			text-align: center;
 			line-height: 100rpx;
+			font-size: 20rpx;
 			margin: 0 auto;
 			background-color: pink;
+			border-radius: 50%;
 		}
 	}
 
@@ -263,8 +333,8 @@
 		width: 100%;
 		min-height: 100vh;
 		margin: 0 auto;
-		background: pink;
 		padding-bottom: 1rpx;
+		background-color: #f4f4f4;
 	}
 
 	.uni-margin-wrap {

@@ -41,6 +41,7 @@ app.$mount()
 // #endif
 
 import http from "@/utils/http.js"
+import utils from "@/utils/index.js"
 
 
 // #ifdef VUE3
@@ -51,6 +52,7 @@ export function createApp() {
 	app.config.globalProperties.requests = http.requests;
 	app.config.globalProperties.upload = http.upload;
 	app.config.globalProperties.baseUrl = http.baseUrl;
+	app.config.globalProperties.getDate = utils.getDate;
   return {
     app
   }

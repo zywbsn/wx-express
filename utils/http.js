@@ -1,7 +1,15 @@
 const baseUrl = "http://localhost:9090";
 
 function requests(ApiUrl, data, method) {
-	let url = baseUrl + ApiUrl;
+	// #ifdef H5
+	let url = "/api" + ApiUrl;
+	// #endif
+	
+	// #ifndef H5
+	let url = baseUrl + "/api" + ApiUrl;
+	// #endif
+	
+
 	return new Promise((resolve, reject) => {
 		uni.request({
 			url,
@@ -9,6 +17,7 @@ function requests(ApiUrl, data, method) {
 			method,
 			header:{
 				// 'content-type': 'application/json',
+				'Access-Control-Allow-Origin': '*',
 				'content-type': 'application/x-www-form-urlencoded',
 			},
 			success: (res) => {
@@ -21,7 +30,7 @@ function requests(ApiUrl, data, method) {
 	})
 }
 function upload(data) {
-	let url = baseUrl + "/upload";
+	let url = baseUrl + "/api/upload";
 	let method = "POST";
 	return new Promise((resolve, reject) => {
 		var boundary = Math.random().toString().substr(2);
